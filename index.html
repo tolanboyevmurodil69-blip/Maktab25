@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="uz"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Maktab boshqaruv tizimi</title>
+<meta name="description" content="Maktab veb sayti: dars jadvali, baholar, davomat va e’lonlar. O‘qituvchi va o‘quvchilar uchun kirish.">
+<meta name="robots" content="index, follow">
+<meta property="og:title" content="Maktab boshqaruv tizimi">
+<meta property="og:description" content="Dars jadvali, baholar, davomat va e’lonlar.">
+<meta property="og:type" content="website">
+<style>
+:root{--bg:#f5f6fa;--card:#fff;--tx:#1b1f2a;--mu:#6b7280;--pr:#2457d6;--bd:#e2e5ee;--rd:#d93a3a;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+@media(prefers-color-scheme:dark){:root:not([data-theme="light"]){--bg:#13151c;--card:#1d2029;--tx:#eceef4;--mu:#9aa1b2;--pr:#6c93ff;--bd:#2d3140;--rd:#ff6b6b}}
+:root[data-theme="dark"]{--bg:#13151c;--card:#1d2029;--tx:#eceef4;--mu:#9aa1b2;--pr:#6c93ff;--bd:#2d3140;--rd:#ff6b6b}
+*{box-sizing:border-box}html{scroll-padding-top:env(safe-area-inset-top,0px)}
+body{margin:0;background:var(--bg);color:var(--tx);font:15px/1.5 system-ui,-apple-system,Segoe UI,Roboto,sans-serif}
+.w{max-width:960px;margin:0 auto;padding:16px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:12px;padding:16px;margin-bottom:14px}
+h1{font-size:20px;margin:0}h2{font-size:17px;margin:0 0 10px}
+input,select,textarea,button{font:inherit;color:var(--tx);background:var(--bg);border:1px solid var(--bd);border-radius:8px;padding:9px 10px;width:100%}
+button{background:var(--pr);color:#fff;border:0;cursor:pointer;width:auto;padding:9px 16px}
+button.g{background:transparent;color:var(--tx);border:1px solid var(--bd)}
+button.d{background:transparent;color:var(--rd);border:1px solid var(--bd);padding:4px 10px}
+.top{display:flex;justify-content:space-between;align-items:center;gap:10px;margin-bottom:12px}
+.tabs{display:flex;gap:6px;overflow-x:auto;margin-bottom:14px;padding-bottom:4px}
+.tabs button{background:var(--card);color:var(--tx);border:1px solid var(--bd);white-space:nowrap}
+.tabs button.on{background:var(--pr);color:#fff;border-color:var(--pr)}
+.fm{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:8px;align-items:end}
+label{font-size:12px;color:var(--mu);display:block;margin-bottom:2px}
+.tb{overflow-x:auto}table{border-collapse:collapse;width:100%}
+th,td{text-align:left;padding:8px;border-bottom:1px solid var(--bd);white-space:nowrap}th{color:var(--mu);font-size:12px;font-weight:600}
+.lg{max-width:360px;margin:12vh auto}.e{color:var(--rd);font-size:13px;min-height:18px}.mu{color:var(--mu)}
+</style></head><body><div class="w" id="app"></div>
+<script>
+const K='maktab_db';let db=null;
+try{db=JSON.parse(localStorage.getItem(K))}catch(e){}
+if(!db)db={n:2,users:[{id:'u1',name:'Administrator',login:'admin',pass:'admin123',role:'admin',cls:''}],classes:[],subjects:[],schedule:[],grades:[],att:[],news:[]};
+const save=()=>{try{localStorage.setItem(K,JSON.stringify(db))}catch(e){}};
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const P=(a)=>a.map(x=>[x,x]);
+const O={
+role:()=>[['teacher','O‘qituvchi'],['student','O‘quvchi'],['admin','Admin']],
+cls:()=>P(db.classes.map(c=>c.name)),subj:()=>P(db.subjects.map(c=>c.name)),
+student:()=>db.users.filter(u=>u.role=='student').map(u=>[u.id,u.name+' ('+u.cls+')']),
+teacher:()=>db.users.filter(u=>u.role=='teacher').map(u=>[u.id,u.name]),
+day:()=>P(['Dushanba','Seshanba','Chorshanba','Payshanba','Juma','Shanba']),
+st:()=>P(['Keldi','Kelmadi','Kechikdi'])};
+const A=['admin'],AT=['admin','teacher'];
+const SEC={
+users:{t:'Foydalanuvchilar',col:'users',w:A,v:A,f:[['name','Ism-familiya'],['login','Login'],['pass','Parol'],['role','Rol','role'],['cls','Sinf (o‘quvchi)','cls']]},
+classes:{t:'Sinflar',col:'classes',w:A,v:A,f:[['name','Sinf nomi (5-A)']]},
+subjects:{t:'Fanlar',col:'subjects',w:A,v:A,f:[['name','Fan nomi']]},
+schedule:{t:'Dars jadvali',col:'schedule',w:A,f:[['cls','Sinf','cls'],['day','Kun','day'],['time','Vaqt (08:30)'],['subj','Fan','subj'],['teacher','O‘qituvchi','teacher']],flt:(u,r)=>u.role!='student'||r.cls==u.cls},
+grades:{t:'Baholar',col:'grades',w:AT,f:[['student','O‘quvchi','student'],['subj','Fan','subj'],['score','Baho (1-5)','num'],['date','Sana','date']],flt:(u,r)=>u.role!='student'||r.student==u.id},
+att:{t:'Davomat',col:'att',w:AT,f:[['student','O‘quvchi','student'],['date','Sana','date'],['status','Holat','st']],flt:(u,r)=>u.role!='student'||r.student==u.id},
+news:{t:'E‘lonlar',col:'news',w:AT,f:[['title','Sarlavha'],['text','Matn']]}};
+let me=null,tab='schedule';
+const vis=()=>Object.keys(SEC).filter(k=>!SEC[k].v||SEC[k].v.includes(me.role));
+const show=(type,v)=>{if(type=='student'||type=='teacher'){const u=db.users.find(x=>x.id==v);return u?u.name:'—'}if(type=='role')return(O.role().find(x=>x[0]==v)||[0,v])[1];return v};
+function login(){const l=document.getElementById('l').value.trim(),p=document.getElementById('p').value;
+const u=db.users.find(x=>x.login==l&&x.pass==p);if(!u){document.getElementById('er').textContent='Login yoki parol noto‘g‘ri';return}
+me=u;tab=vis()[0]=='users'?'users':vis()[0];draw()}
+function add(k){const s=SEC[k],r={id:'r'+db.n++};
+for(const[f,,t]of s.f){const el=document.getElementById('f_'+f);r[f]=el.value.trim();if(!r[f]&&f!='cls'){el.focus();return}}
+if(k=='users'&&db.users.some(u=>u.login==r.login)){alert('Bu login band');return}
+db[s.col].push(r);save();draw()}
+function del(k,id){if(!confirm('O‘chirilsinmi?'))return;
+const s=SEC[k];db[s.col]=db[s.col].filter(r=>r.id!=id);
+if(k=='users'){['grades','att'].forEach(c=>db[c]=db[c].filter(r=>r.student!=id));if(me.id==id){me=null}}
+save();draw()}
+function out(){me=null;draw()}
+function srch(v){v=v.toLowerCase().trim();document.querySelectorAll('#tbl tr').forEach((tr,i)=>{if(i)tr.style.display=tr.textContent.toLowerCase().includes(v)?'':'none'})}
+function draw(){const a=document.getElementById('app');
+if(!me){a.innerHTML=`<div class="card lg"><h1>🏫 Maktab tizimi</h1><p class="mu">Faqat o‘qituvchi va o‘quvchilar kira oladi.</p>
+<label>Login</label><input id="l" autocomplete="username"><div style="height:8px"></div><label>Parol</label><input id="p" type="password" autocomplete="current-password" onkeydown="if(event.key=='Enter')login()">
+<div class="e" id="er"></div><button onclick="login()" style="width:100%">Kirish</button></div>`;return}
+const ks=vis();if(!ks.includes(tab))tab=ks[0];const s=SEC[tab];const canW=s.w&&s.w.includes(me.role);
+let h=`<div class="top"><div><h1>🏫 Maktab</h1><span class="mu">${esc(me.name)} · ${show('role',me.role)}</span></div><button class="g" onclick="out()">Chiqish</button></div>
+<div class="tabs">${ks.map(k=>`<button class="${k==tab?'on':''}" onclick="tab='${k}';draw()">${SEC[k].t}</button>`).join('')}</div>`;
+if(canW){h+=`<div class="card"><h2>Qo‘shish</h2><div class="fm">`+s.f.map(([f,l,t])=>{
+let i;if(t=='date')i=`<input type="date" id="f_${f}" value="${new Date().toISOString().slice(0,10)}">`;
+else if(t=='num')i=`<input type="number" min="1" max="5" id="f_${f}">`;
+else if(t&&O[t]){const o=O[t]();i=`<select id="f_${f}">${t=='cls'?'<option value="">—</option>':''}${o.map(x=>`<option value="${esc(x[0])}">${esc(x[1])}</option>`).join('')}</select>`}
+else i=f=='text'?`<textarea id="f_${f}" rows="1"></textarea>`:`<input id="f_${f}">`;
+return`<div><label>${l}</label>${i}</div>`}).join('')+`<button onclick="add('${tab}')">Qo‘shish</button></div></div>`}
+let rows=db[s.col].filter(r=>!s.flt||s.flt(me,r));
+if(tab=='news'||tab=='grades'||tab=='att')rows=rows.slice().reverse();
+h+=`<div class="card"><h2>${s.t} (${rows.length})</h2><input type="search" placeholder="🔍 Qidirish..." oninput="srch(this.value)" style="margin-bottom:10px"><div class="tb"><table id="tbl"><tr>${s.f.map(f=>`<th>${f[1].replace(/ \(.*/,'')}</th>`).join('')}${canW?'<th></th>':''}</tr>`+
+rows.map(r=>`<tr>${s.f.map(([f,,t])=>`<td style="${f=='text'?'white-space:normal':''}">${esc(show(t,r[f]))}</td>`).join('')}${canW?`<td><button class="d" onclick="del('${tab}','${r.id}')">✕</button></td>`:''}</tr>`).join('')+
+`</table>${rows.length?'':'<p class="mu">Hozircha ma’lumot yo‘q.</p>'}</div></div>`;
+if(me.role=='admin'&&tab=='users')h+=`<p class="mu">Boshlang‘ich admin: <b>admin / admin123</b> — parolni almashtirish uchun yangi admin yarating va eskisini o‘chiring.</p>`;
+a.innerHTML=h}
+draw();
+</script></body></html>
